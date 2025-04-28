@@ -121,7 +121,10 @@
 
 
 
-
+        <repository>
+            <id>${releaseRepository.id}</id>
+            <url>${releaseRepository.url}</url>
+        </repository>
         <repository>
             <id>maven-central</id>
             <url>https://repo1.maven.org/maven2</url>
@@ -135,6 +138,7 @@
             <id>flyway-repo</id>
             <url>https://nexus.flywaydb.org/repository/flyway/</url>
         </repository>
+
     </repositories>
 
     <properties>
