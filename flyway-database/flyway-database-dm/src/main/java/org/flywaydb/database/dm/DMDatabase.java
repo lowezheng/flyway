@@ -30,6 +30,8 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DMDatabase extends Database<DMConnection> {
     public DMDatabase(Configuration configuration, JdbcConnectionFactory jdbcConnectionFactory, StatementInterceptor statementInterceptor) {
@@ -95,71 +97,67 @@ public class DMDatabase extends Database<DMConnection> {
     Set<String> getSystemSchemas() throws SQLException {
 
         // The list of known default system schemas
-        Set<String> result = new HashSet<>(Arrays.asList(
-                "SYS", "SYSTEM", // Standard system accounts
-                "SYSBACKUP", "SYSDG", "SYSKM", "SYSRAC", "SYS$UMF", // Auxiliary system accounts
-                "DBSNMP", "MGMT_VIEW", "SYSMAN", // Enterprise Manager accounts
-                "OUTLN", // Stored outlines
-                "AUDSYS", // Unified auditing
-                "ORACLE_OCM", // Oracle Configuration Manager
-                "APPQOSSYS", // Oracle Database QoS Management
-                "OJVMSYS", // Oracle JavaVM
-                "DVF", "DVSYS", // Oracle Database Vault
-                "DBSFWUSER", // Database Service Firewall
-                "REMOTE_SCHEDULER_AGENT", // Remote scheduler agent
-                "DIP", // Oracle Directory Integration Platform
-                "APEX_PUBLIC_USER", "FLOWS_FILES", /*"APEX_######", "FLOWS_######",*/ // Oracle Application Express
-                "ANONYMOUS", "XDB", "XS$NULL", // Oracle XML Database
-                "CTXSYS", // Oracle Text
-                "LBACSYS", // Oracle Label Security
-                "EXFSYS", // Oracle Rules Manager and Expression Filter
-                "MDDATA", "MDSYS", "SPATIAL_CSW_ADMIN_USR", "SPATIAL_WFS_ADMIN_USR", // Oracle Locator and Spatial
-                "ORDDATA", "ORDPLUGINS", "ORDSYS", "SI_INFORMTN_SCHEMA", // Oracle Multimedia
-                "WMSYS", // Oracle Workspace Manager
-                "OLAPSYS", // Oracle OLAP catalogs
-                "OWBSYS", "OWBSYS_AUDIT", // Oracle Warehouse Builder
-                "GSMADMIN_INTERNAL", "GSMCATUSER", "GSMUSER", // Global Data Services
-                "GGSYS", // Oracle GoldenGate
-                "WK_TEST", "WKSYS", "WKPROXY", // Oracle Ultra Search
-                "ODM", "ODM_MTR", "DMSYS", // Oracle Data Mining
-                "TSMSYS" // Transparent Session Migration
-        ));
+        Set<String> result = Stream.of(
+                // Standard system accounts
+                "SYS", "SYSTEM", "SYSDBA","SYSAUDITOR",
+                // Auxiliary system accounts
+                "SYSBACKUP", "SYSDG", "SYSKM", "SYSRAC", "SYS$UMF",
+                // Enterprise Manager accounts
+                "DBSNMP", "MGMT_VIEW", "SYSMAN",
+                // Stored outlines
+                "OUTLN",
+                // Unified auditing
+                "AUDSYS",
+                // DM Configuration Manager
+                "DM_OCM",
+                // DM Database QoS Management
+                "APPQOSSYS",
+                // DM JavaVM
+                "OJVMSYS",
+                // DM Database Vault
+                "DVF", "DVSYS",
+                // Database Service Firewall
+                "DBSFWUSER",
+                // Remote scheduler agent
+                "REMOTE_SCHEDULER_AGENT",
+                // DM Directory Integration Platform
+                "DIP",
+                /*"APEX_######", "FLOWS_######",*/ // DM Application Express
+                "APEX_PUBLIC_USER", "FLOWS_FILES",
+                // DM XML Database
+                "ANONYMOUS", "XDB", "XS$NULL",
+                // DM Text
+                "CTXSYS",
+                // DM Label Security
+                "LBACSYS",
+                // DM Rules Manager and Expression Filter
+                "EXFSYS",
+                // DM Locator and Spatial
+                "MDDATA", "MDSYS", "SPATIAL_CSW_ADMIN_USR", "SPATIAL_WFS_ADMIN_USR",
+                // DM Multimedia
+                "ORDDATA", "ORDPLUGINS", "ORDSYS", "SI_INFORMTN_SCHEMA",
+                // DM Workspace Manager
+                "WMSYS",
+                // DM OLAP catalogs
+                "OLAPSYS",
+                // DM Warehouse Builder
+                "OWBSYS", "OWBSYS_AUDIT",
+                // Global Data Services
+                "GSMADMIN_INTERNAL", "GSMCATUSER", "GSMUSER",
+                // DM GoldenGate
+                "GGSYS",
+                // DM Ultra Search
+                "WK_TEST", "WKSYS", "WKPROXY",
+                // DM Data Mining
+                "ODM", "ODM_MTR", "DMSYS",
+                // Transparent Session Migration
+                "TSMSYS"
+        ).collect(Collectors.toSet());
 
-        // APEX has a schema with a different name for each version, so get it from ALL_USERS. In addition, starting
-        // from Oracle 12.1, there is a special column in ALL_USERS that marks Oracle-maintained schemas.
-        boolean oracle12cOrHigher = getVersion().isAtLeast("12");
-        result.addAll(getMainConnection().getJdbcTemplate().queryForStringList("SELECT USERNAME FROM ALL_USERS " +
-                "WHERE REGEXP_LIKE(USERNAME, '^(APEX|FLOWS)_\\d+$')" +
-
-
-
-                " OR ORACLE_MAINTAINED = 'Y'"
-
-
-
-        ));
-
-        // For earlier Oracle versions check also DBA_REGISTRY if possible.
-        if (!oracle12cOrHigher && isDataDictViewAccessible("DBA_REGISTRY")) {
-            List<List<String>> schemaSuperList = getMainConnection().getJdbcTemplate().query(
-                    "SELECT SCHEMA, OTHER_SCHEMAS FROM DBA_REGISTRY",
-                    new RowMapper<List<String>>() {
-                        @Override
-                        public List<String> mapRow(ResultSet rs) throws SQLException {
-                            List<String> schemaList = new ArrayList<>();
-                            schemaList.add(rs.getString("SCHEMA"));
-                            String otherSchemas = rs.getString("OTHER_SCHEMAS");
-                            if (otherSchemas != null && !otherSchemas.trim().isEmpty()) {
-                                schemaList.addAll(Arrays.asList(otherSchemas.trim().split("\\s*,\\s*")));
-                            }
-                            return schemaList;
-                        }
-                    });
-            for (List<String> schemaList : schemaSuperList) {
-                result.addAll(schemaList);
-            }
-        }
-
+//        result.addAll(getMainConnection().getJdbcTemplate().queryForStringList("SELECT USERNAME FROM ALL_USERS " +
+//                "WHERE REGEXP_LIKE(USERNAME, '^(APEX|FLOWS)_\\d+$')" +
+//                " OR DM_MAINTAINED = 'Y'"
+//        ));
         return result;
     }
     /**

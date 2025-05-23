@@ -7,9 +7,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -208,54 +208,17 @@ public class DMSchema extends Schema<DMDatabase, DMTable> {
      * @throws SQLException if retrieving of object types failed.
      */
     public static Set<String> getObjectTypeNames(JdbcTemplate jdbcTemplate, DMDatabase database, DMSchema schema) throws SQLException {
-        boolean xmlDbAvailable = database.isXmlDbAvailable();
-        boolean oracle11gOrHigher = database.getVersion().isAtLeast("11");
-        boolean dataMining10gForCurrentUser =
-                schema.isDefaultSchemaForUser()
-                        && !oracle11gOrHigher
-                        && database.isDataMiningAvailable();
+        // 某模式下所有表名 需要DBA权限          AND SEGMENT_NAME LIKE 'CD_%'\n"
+        if (schema.isSystem()) {
+            String query = "select SEGMENT_NAME as tbName from dba_segments  where segment_type='TABLE' and OWNER =? ";
+            int n = 1;
+            String[] params = new String[n];
+            Arrays.fill(params, schema.getName());
+            return new HashSet<>(jdbcTemplate.queryForStringList(query, params));
+        } else {
+            return Collections.EMPTY_SET;
+        }
 
-        String query =
-                // Most object types can be correctly selected from DBA_/ALL_OBJECTS.
-                "SELECT DISTINCT OBJECT_TYPE FROM " + database.dbaOrAll("OBJECTS") + " WHERE OWNER = ? " +
-                        // Materialized view logs.
-                        "UNION SELECT '" + MATERIALIZED_VIEW_LOG.getName() + "' FROM DUAL WHERE EXISTS(" +
-                        "SELECT * FROM ALL_MVIEW_LOGS WHERE LOG_OWNER = ?) " +
-                        // Dimensions.
-                        "UNION SELECT '" + DIMENSION.getName() + "' FROM DUAL WHERE EXISTS(" +
-                        "SELECT * FROM ALL_DIMENSIONS WHERE OWNER = ?) " +
-                        // Queue tables.
-                        "UNION SELECT '" + QUEUE_TABLE.getName() + "' FROM DUAL WHERE EXISTS(" +
-                        "SELECT * FROM ALL_QUEUE_TABLES WHERE OWNER = ?) " +
-                        // Database links.
-                        "UNION SELECT '" + DATABASE_LINK.getName() + "' FROM DUAL WHERE EXISTS(" +
-                        "SELECT * FROM " + database.dbaOrAll("DB_LINKS") + " WHERE OWNER = ?) " +
-                        // Contexts.
-                        "UNION SELECT '" + CONTEXT.getName() + "' FROM DUAL WHERE EXISTS(" +
-                        "SELECT * FROM " + database.dbaOrAll("CONTEXT") + " WHERE SCHEMA = ?) " +
-                        // XML schemas.
-                        (xmlDbAvailable
-                                ? "UNION SELECT '" + XML_SCHEMA.getName() + "' FROM DUAL WHERE EXISTS(" +
-                                "SELECT * FROM " + database.dbaOrAll("XML_SCHEMAS") + " WHERE OWNER = ?) "
-                                : "") +
-                        // Credentials.
-                        (oracle11gOrHigher ?
-                                "UNION SELECT '" + CREDENTIAL.getName() + "' FROM DUAL WHERE EXISTS(" +
-                                        "SELECT * FROM " +
-                                        (database.getVersion().isAtLeast("12.1") ? "ALL_CREDENTIALS" : "ALL_SCHEDULER_CREDENTIALS")
-                                        + " WHERE OWNER = ?) "
-                                : "")
-                        // Mining models in Oracle 10.
-                        + (dataMining10gForCurrentUser
-                        ? "UNION SELECT '" + MINING_MODEL.getName() + "' FROM DUAL WHERE EXISTS(" +
-                        "SELECT * FROM DM_USER_MODELS) "
-                        : "");
-
-        int n = 6 + (xmlDbAvailable ? 1 : 0) + (oracle11gOrHigher ? 1 : 0);
-        String[] params = new String[n];
-        Arrays.fill(params, schema.getName());
-
-        return new HashSet<>(jdbcTemplate.queryForStringList(query, params));
     }
 
     /**
