@@ -29,7 +29,7 @@
     <artifactId>flyway-database-oceanbase</artifactId>
     <packaging>jar</packaging>
     <name>${project.artifactId}</name>
-    <version>${project.parent.version}.apexsoft.20250614</version>
+    <version>${project.parent.version}.apexsoft.20260226</version>
 
     <dependencies>
         <dependency>

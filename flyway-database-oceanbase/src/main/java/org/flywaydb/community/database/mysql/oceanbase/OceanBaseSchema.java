@@ -34,11 +34,21 @@ public class OceanBaseSchema extends Schema<OceanBaseDatabase, OceanBaseTable> {
 
     @Override
     protected boolean doExists() throws SQLException {
-        return jdbcTemplate.queryForInt("SELECT COUNT(1) FROM information_schema.schemata WHERE schema_name=? LIMIT 1", name) > 0;
+        if(jdbcTemplate.getConnection().getCatalog()==null){
+
+            return jdbcTemplate.queryForInt(" SELECT COUNT(1) FROM ALL_USERS WHERE USERNAME = UPPER(?)", name) > 0;
+        }else{
+            return jdbcTemplate.queryForInt("SELECT COUNT(1) FROM information_schema.schemata WHERE schema_name=? LIMIT 1", name) > 0;
+        }
+
     }
 
     @Override
     protected boolean doEmpty() throws SQLException {
+        //oracle就不管了
+        if(jdbcTemplate.getConnection().getCatalog()==null){
+            return true;
+        }
         List<String> params = new ArrayList<>(Arrays.asList(name, name, name, name, name));
         if (database.eventSchedulerQueryable) {
             params.add(name);

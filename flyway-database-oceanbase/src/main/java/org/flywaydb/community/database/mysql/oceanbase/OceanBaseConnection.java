@@ -50,9 +50,18 @@ public class OceanBaseConnection extends Connection<OceanBaseDatabase> {
                 + (database.isMariaDB() ? USER_VARIABLES_TABLE_MARIADB : USER_VARIABLES_TABLE_MYSQL)
                 + " WHERE variable_value IS NOT NULL";
         canResetUserVariables = hasUserVariableResetCapability();
+        try {
+            if (jdbcTemplate.getConnection().getCatalog() == null) {
+                originalForeignKeyChecks = 0;
+                originalSqlSafeUpdates = 0;
+            } else {
+                originalForeignKeyChecks = getIntVariableValue(FOREIGN_KEY_CHECKS);
+                originalSqlSafeUpdates = getIntVariableValue(SQL_SAFE_UPDATES);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
 
-        originalForeignKeyChecks = getIntVariableValue(FOREIGN_KEY_CHECKS);
-        originalSqlSafeUpdates = getIntVariableValue(SQL_SAFE_UPDATES);
     }
 
     private int getIntVariableValue(String varName) {
@@ -65,15 +74,6 @@ public class OceanBaseConnection extends Connection<OceanBaseDatabase> {
 
     // #2215: ensure the database is recent enough and the current user has the necessary SELECT grant
     private boolean hasUserVariableResetCapability() {
-
-
-
-
-
-
-
-
-
 
 
         try {
@@ -116,7 +116,13 @@ public class OceanBaseConnection extends Connection<OceanBaseDatabase> {
 
     @Override
     protected String getCurrentSchemaNameOrSearchPath() throws SQLException {
-        return jdbcTemplate.queryForString("SELECT DATABASE()");
+        //这是oracle
+        if (jdbcTemplate.getConnection().getCatalog() == null) {
+            return jdbcTemplate.queryForString("SELECT USER FROM DUAL");
+        } else {
+            return jdbcTemplate.queryForString("SELECT DATABASE()");
+        }
+
     }
 
     @Override
@@ -157,4 +163,6 @@ public class OceanBaseConnection extends Connection<OceanBaseDatabase> {
     protected boolean canUseNamedLockTemplate() {
         return false;
     }
+
+
 }

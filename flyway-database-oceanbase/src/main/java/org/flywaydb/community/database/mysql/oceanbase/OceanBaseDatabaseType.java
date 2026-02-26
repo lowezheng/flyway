@@ -23,6 +23,7 @@ import org.flywaydb.core.internal.util.ClassUtils;
 import org.flywaydb.database.mysql.MySQLDatabaseType;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 public class OceanBaseDatabaseType extends MySQLDatabaseType {
 

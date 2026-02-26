@@ -129,6 +129,33 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
         return true;
     }
 
+
+
+
+
+    public String getRawCreateScriptOracle(Table table, boolean baseline) {
+        String tablespace = configuration.getTablespace() == null
+                ? ""
+                : " TABLESPACE \"" + configuration.getTablespace() + "\"";
+
+        return "CREATE TABLE " + table + " (\n" +
+                "    \"installed_rank\" INT NOT NULL,\n" +
+                "    \"version\" VARCHAR2(50),\n" +
+                "    \"description\" VARCHAR2(200) NOT NULL,\n" +
+                "    \"type\" VARCHAR2(20) NOT NULL,\n" +
+                "    \"script\" VARCHAR2(1000) NOT NULL,\n" +
+                "    \"checksum\" INT,\n" +
+                "    \"installed_by\" VARCHAR2(100) NOT NULL,\n" +
+                "    \"installed_on\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,\n" +
+                "    \"execution_time\" INT NOT NULL,\n" +
+                "    \"success\" NUMBER(1) NOT NULL,\n" +
+                "    CONSTRAINT \"" + table.getName() + "_pk\" PRIMARY KEY (\"installed_rank\")\n" +
+                ")" + tablespace + ";\n" +
+                (baseline ? getBaselineStatement(table) + ";\n" : "") +
+                "CREATE INDEX \"" + table.getSchema().getName() + "\".\"" + table.getName() + "_s_idx\" ON " + table + " (\"success\");\n";
+    }
+
+
     @Override
     public String getRawCreateScript(Table table, boolean baseline) {
         String tablespace =
@@ -159,7 +186,13 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
                 baselineMarker = ";\n" + getBaselineStatement(table);
             }
         }
-
+        try {
+            if(jdbcTemplate.getConnection().getCatalog()==null){
+                return getRawCreateScriptOracle(table,baseline);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
         return "CREATE TABLE " + table + " (\n" +
                 "    `installed_rank` INT NOT NULL,\n" +
                 "    `version` VARCHAR(50),\n" +
@@ -191,7 +224,17 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
     protected MigrationVersion determineVersion() {
         // Ignore the version from the JDBC metadata and use the version returned by the database since proxies such as
         // Azure or ProxySQL return incorrect versions
-        String selectVersionOutput = BaseDatabaseType.getSelectVersionOutput(rawMainJdbcConnection);
+        String selectVersionOutput;
+        try {
+            if(rawMainJdbcConnection.getCatalog()==null){
+                selectVersionOutput = rawMainJdbcConnection.getMetaData().getDatabaseProductVersion();
+            }else{
+                selectVersionOutput = BaseDatabaseType.getSelectVersionOutput(rawMainJdbcConnection);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
         if (databaseType instanceof MariaDBDatabaseType) {
             return extractMariaDBVersionFromString(selectVersionOutput);
         }
