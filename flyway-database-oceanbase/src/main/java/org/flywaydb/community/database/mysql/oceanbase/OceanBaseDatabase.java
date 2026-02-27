@@ -56,7 +56,7 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
     protected boolean eventSchedulerQueryable;
 
 
-    protected boolean isOracle = false;
+    public static boolean isOracle = false;
 
     public OceanBaseDatabase(Configuration configuration, JdbcConnectionFactory jdbcConnectionFactory, StatementInterceptor statementInterceptor) {
         super(configuration, jdbcConnectionFactory, statementInterceptor);
