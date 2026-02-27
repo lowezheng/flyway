@@ -167,13 +167,13 @@ public class OceanBaseSchema extends Schema<OceanBaseDatabase, OceanBaseTable> {
 
         OceanBaseTable[] tables = new OceanBaseTable[tableNames.size()];
         for (int i = 0; i < tableNames.size(); i++) {
-            tables[i] = new OceanBaseTable(jdbcTemplate, database, this, tableNames.get(i));
+            tables[i] = new OceanBaseTable(jdbcTemplate, database, this, database.isOracle?tableNames.get(i).toUpperCase():tableNames.get(i));
         }
         return tables;
     }
 
     @Override
     public Table getTable(String tableName) {
-        return new OceanBaseTable(jdbcTemplate, database, this, tableName);
+        return new OceanBaseTable(jdbcTemplate, database, this, database.isOracle?tableName.toUpperCase():tableName);
     }
 }

@@ -55,6 +55,9 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
      */
     protected boolean eventSchedulerQueryable;
 
+
+    protected boolean isOracle = false;
+
     public OceanBaseDatabase(Configuration configuration, JdbcConnectionFactory jdbcConnectionFactory, StatementInterceptor statementInterceptor) {
         super(configuration, jdbcConnectionFactory, statementInterceptor);
 
@@ -63,6 +66,13 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
         gtidConsistencyEnforced = isMySQL() && isRunningInGTIDConsistencyMode(jdbcTemplate);
         //eventSchedulerQueryable = isMySQL() || isEventSchedulerQueryable(jdbcTemplate);
         this.eventSchedulerQueryable = false;
+        try {
+            if (jdbcTemplate.getConnection().getCatalog() == null) {
+                isOracle = true;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static boolean isEventSchedulerQueryable(JdbcTemplate jdbcTemplate) {
@@ -130,9 +140,6 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
     }
 
 
-
-
-
     public String getRawCreateScriptOracle(Table table, boolean baseline) {
         String tablespace = configuration.getTablespace() == null
                 ? ""
@@ -161,7 +168,6 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
         String tablespace =
 
 
-
                 configuration.getTablespace() == null
                         ? ""
                         : " TABLESPACE \"" + configuration.getTablespace() + "\"";
@@ -186,12 +192,8 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
                 baselineMarker = ";\n" + getBaselineStatement(table);
             }
         }
-        try {
-            if(jdbcTemplate.getConnection().getCatalog()==null){
-                return getRawCreateScriptOracle(table,baseline);
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+        if (isOracle) {
+            return getRawCreateScriptOracle(table, baseline);
         }
         return "CREATE TABLE " + table + " (\n" +
                 "    `installed_rank` INT NOT NULL,\n" +
@@ -226,9 +228,9 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
         // Azure or ProxySQL return incorrect versions
         String selectVersionOutput;
         try {
-            if(rawMainJdbcConnection.getCatalog()==null){
+            if (rawMainJdbcConnection.getCatalog() == null) {
                 selectVersionOutput = rawMainJdbcConnection.getMetaData().getDatabaseProductVersion();
-            }else{
+            } else {
                 selectVersionOutput = BaseDatabaseType.getSelectVersionOutput(rawMainJdbcConnection);
             }
         } catch (SQLException e) {
@@ -263,29 +265,6 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     @Override
     public final void ensureSupported() {
         if ("TiDB".equals(databaseType.getName())) {
@@ -309,23 +288,19 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
             ensureDatabaseNotOlderThanOtherwiseRecommendUpgradeToFlywayEdition("8.0", org.flywaydb.core.internal.license.Edition.ENTERPRISE);
 
 
-
-
-
-
-
-
-
-
-
-
             recommendFlywayUpgradeIfNecessary("8.0");
         }
     }
 
     @Override
     protected String doGetCurrentUser() throws SQLException {
-        return getMainConnection().getJdbcTemplate().queryForString("SELECT SUBSTRING_INDEX(USER(),'@',1)");
+        if(isOracle){
+            //
+            return getMainConnection().getJdbcTemplate().queryForString("SELECT USER FROM DUAL");
+        }else{
+            return getMainConnection().getJdbcTemplate().queryForString("SELECT SUBSTRING_INDEX(USER(),'@',1)");
+        }
+
     }
 
     @Override
@@ -345,12 +320,12 @@ public class OceanBaseDatabase extends Database<OceanBaseConnection> {
 
     @Override
     public String getOpenQuote() {
-        return "`";
+        return isOracle ? "\"" : "`";
     }
 
     @Override
     public String getCloseQuote() {
-        return "`";
+        return isOracle ? "\"" : "`";
     }
 
     @Override
